@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# venv
+.venv/
+
+# OS
+.DS_Store
+
+# Outputs / datasets
+outputs/
+dataset/
+results/
+*.stl
+*.vtk
+*.obj
+*.ply
+*.csv
+*.log
