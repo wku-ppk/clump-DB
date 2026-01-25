@@ -29,6 +29,7 @@ For each case (one parameter set), the pipeline:
   - `make_shape.py` : generate a single STL mesh (sanity check / debugging)
   - `run_compact_case_hash.py` : generate a full “case” (STL + clump + metadata)
   - `view_case.py` : interactive viewer for a case
+  - `rebuild_manifest.py` : rebuild "manifest.jsonl" file based on the current dataset
 
 - `dataset/shapes/<case_id>/`  
   Output database (one folder per case)
