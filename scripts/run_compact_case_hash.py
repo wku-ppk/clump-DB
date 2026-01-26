@@ -1,7 +1,8 @@
 #python scripts/run_compact_case_hash.py \
-#  --L 1 --e 0.75 --f 0.65 --randomness 0.3 --seed 1234 \
+#  --L 1 --e 0.75 --f 0.65 --randomness 0.30 --seed 1234 \
 #  --N 30 --rMin 0.0 --div 100 --overlap 0.7 --rMax_ratio 1.0 \
-#  --resume
+#  --Gs 2.65 --samples-volume 200000 --samples-inertia 200000 \
+#  --update-meta
 
 import argparse
 import json
@@ -68,6 +69,15 @@ def main():
     ap.add_argument("--overlap", type=float, default=0.6)
     ap.add_argument("--rMax_ratio", type=float, default=0.3)
     ap.add_argument("--visualise", action="store_true")
+
+    # molecule information for lammps
+    ap.add_argument("--Gs", type=float, default=None, help="Specific gravity (e.g., 2.65). If set, also write molecule_mc.data")
+    ap.add_argument("--rho-water", type=float, default=1000.0)
+    ap.add_argument("--samples-volume", type=int, default=200_000)
+    ap.add_argument("--samples-inertia", type=int, default=200_000)
+    ap.add_argument("--seed-mc", type=int, default=1234)
+    ap.add_argument("--no-molecule", action="store_true")
+    ap.add_argument("--update-meta", action="store_true", help="Write MC results into <case_dir>/meta.json under key 'mc'")
 
     args = ap.parse_args()
 
@@ -163,6 +173,23 @@ def main():
     center, r_out = trimesh.nsphere.minimum_nsphere(mesh)
     D_out = 2.0 * float(r_out)
     sphericity = float(np.sqrt(abs(wadell["D_in"] / D_out)))
+
+    if (not args.no_molecule) and (args.Gs is not None):
+        from clumpgen.molecule_mc import compute_and_write_molecule_from_case
+        out_mol = compute_and_write_molecule_from_case(
+            case_dir=case_dir,
+            Gs=args.Gs,
+            rho_water=args.rho_water,
+            samples_volume=args.samples_volume,
+            samples_inertia=args.samples_inertia,
+            seed=args.seed_mc,
+            balls_name="balls_xyzr.txt",
+            out_name="molecule_mc.data",
+            update_meta=bool(args.update_meta),   # ✅ 여기
+        )
+        print("[OK] wrote molecule:", out_mol)
+        if args.update_meta:
+            print("[OK] updated meta:", case_dir / "meta.json")
 
     # ---- 4) meta.json + manifest.jsonl ----
     meta = {
