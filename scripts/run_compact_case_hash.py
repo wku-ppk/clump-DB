@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import trimesh
+import trimesh.repair
 
 from CLUMP import GenerateClump_Euclidean_3D
 from clumpgen.id import make_hash_id
@@ -150,7 +151,22 @@ def main():
     v = m.vertices * np.array([L, I, S], dtype=float)
     u = np.random.default_rng(int(args.seed)).random(len(v)) ** float(args.bias)
     m.vertices = v * (1.0 - float(args.randomness) * u)[:, None]  # inward-only
+
+# ---- (optional) mesh cleanup / validation ----
+    try:
+        m.process(validate=True)
+        trimesh.repair.fix_inversion(m)
+        trimesh.repair.fix_normals(m)
+    except Exception as e:
+        print(f"[WARN] mesh cleanup failed: {e!r}")
+
+    # ✅ export는 반드시 try/except 밖에서 실행
+    stl_path.parent.mkdir(parents=True, exist_ok=True)
     m.export(stl_path.as_posix())
+
+    # ✅ 안전 체크(권장)
+    if not stl_path.exists():
+        raise RuntimeError(f"STL export failed (file not found): {stl_path}")
 
     # ---- 2) CLUMP ----
     mesh, clump = GenerateClump_Euclidean_3D(
