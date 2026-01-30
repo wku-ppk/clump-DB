@@ -23,6 +23,8 @@ For each case (one parameter set), the pipeline:
 
 - `clumpgen/`  
   Python package with core utilities (e.g., mesh generation used by scripts)
+  - `molecule_mc.py` : module script for make molecule file for lammps
+  - `shape.py` : module script for make STL shape file
 
 - `scripts/`  
   CLI scripts:
@@ -97,7 +99,11 @@ Generate a full “case”:
 ### Usage
 
 ```bash
-python scripts/run_compact_case_hash.py   --L 1 --e 0.75 --f 0.65 --sub 4 --randomness 0.3 --seed 1234   --N 30 --rMin 0.0 --div 100 --overlap 0.7 --rMax_ratio 1.0   --resume
+python scripts/run_compact_case_hash.py \
+  --L 1 --e 0.75 --f 0.65 --sub 1 --randomness 0.30 --seed 1234 \
+  --N 40 --rMin 0.0 --div 300 --overlap 0.7 --rMax_ratio 1.0 \
+  --Gs 2.65 --samples-volume 200000 --samples-inertia 200000 \
+  --update-meta
 ```
 
 ### Parameters
