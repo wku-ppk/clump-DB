@@ -10,6 +10,54 @@ import json
 from pathlib import Path
 
 import numpy as np
+
+
+def load_xyzr_from_molecule_file(path: Path):
+    """
+    Parse molecule_mc.data (Coords + Diameters) and return xyz, r.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+
+    def find_section(name: str) -> int:
+        for i, ln in enumerate(lines):
+            if ln.strip() == name:
+                return i
+        return -1
+
+    i_coords = find_section("Coords")
+    i_diams = find_section("Diameters")
+    if i_coords < 0 or i_diams < 0:
+        raise ValueError(f"Cannot find Coords/Diameters in {path}")
+
+    coords = {}
+    i = i_coords + 1
+    while i < len(lines) and lines[i].strip() == "":
+        i += 1
+    while i < len(lines) and lines[i].strip() != "":
+        parts = lines[i].split()
+        if len(parts) >= 4:
+            idx = int(parts[0])
+            coords[idx] = (float(parts[1]), float(parts[2]), float(parts[3]))
+        i += 1
+
+    diams = {}
+    i = i_diams + 1
+    while i < len(lines) and lines[i].strip() == "":
+        i += 1
+    while i < len(lines) and lines[i].strip() != "":
+        parts = lines[i].split()
+        if len(parts) >= 2:
+            idx = int(parts[0])
+            diams[idx] = float(parts[1])
+        i += 1
+
+    ids = sorted(set(coords.keys()) & set(diams.keys()))
+    if not ids:
+        raise ValueError(f"No matching ids in Coords/Diameters for {path}")
+
+    xyz = np.array([coords[i] for i in ids], dtype=float)
+    r = np.array([0.5 * diams[i] for i in ids], dtype=float)
+    return xyz, r
 import trimesh
 import pyvista as pv
 

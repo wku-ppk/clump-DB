@@ -1,6 +1,6 @@
 #python scripts/run_compact_case_hash.py \
-#  --L 1 --e 0.75 --f 0.65 --randomness 0.30 --seed 1234 \
-#  --N 30 --rMin 0.0 --div 100 --overlap 0.7 --rMax_ratio 1.0 \
+#  --L 1 --e 0.75 --f 0.65 --sub 1 --randomness 0.30 --seed 1234 \
+#  --N 30 --rMin 0.0 --div 200 --overlap 0.7 --rMax_ratio 1.0 \
 #  --Gs 2.65 --samples-volume 200000 --samples-inertia 200000 \
 #  --update-meta
 
@@ -175,23 +175,26 @@ def main():
     sphericity = float(np.sqrt(abs(wadell["D_in"] / D_out)))
 
     if (not args.no_molecule) and (args.Gs is not None):
-        from clumpgen.molecule_mc import compute_and_write_molecule_from_case
-        out_mol = compute_and_write_molecule_from_case(
-            case_dir=case_dir,
-            Gs=args.Gs,
-            rho_water=args.rho_water,
-            samples_volume=args.samples_volume,
-            samples_inertia=args.samples_inertia,
-            seed=args.seed_mc,
-            balls_name="balls_xyzr.txt",
-            out_name="molecule_mc.data",
-            update_meta=bool(args.update_meta),   # ✅ 여기
+        # Monte Carlo mass properties (union of spheres) -> LAMMPS-style molecule file
+        from clumpgen.molecule_mc import compute_and_write_molecule_from_xyzr
+
+        out_mol, mc_result = compute_and_write_molecule_from_xyzr(
+            xyz=xyz,
+            r=r,
+            out_path=case_dir / "molecule_mc.data",
+            Gs=float(args.Gs),
+            rho_water=float(args.rho_water),
+            density=None,
+            samples_volume=int(args.samples_volume),
+            samples_inertia=int(args.samples_inertia),
+            seed=int(args.seed_mc),
         )
         print("[OK] wrote molecule:", out_mol)
-        if args.update_meta:
-            print("[OK] updated meta:", case_dir / "meta.json")
+    else:
+        mc_result = None
 
     # ---- 4) meta.json + manifest.jsonl ----
+
     meta = {
         "case_id": case_id,
         "shape_id": shape_id,
@@ -220,6 +223,11 @@ def main():
         },
         "stage": "clump_done",
     }
+    # Optionally embed Monte Carlo results into meta.json
+    if bool(args.update_meta) and (mc_result is not None):
+        meta["mc"] = mc_result
+        meta.setdefault("paths", {})["molecule_mc"] = str((case_dir / mc_result["molecule_file"]).as_posix())
+
 
     write_json(meta_path, meta)
     append_jsonl(manifest_path, meta)
