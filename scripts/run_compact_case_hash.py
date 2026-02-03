@@ -179,6 +179,8 @@ def main():
         outputVTK=out_vtk.as_posix(),
         visualise=bool(args.visualise),
         rMax_ratio=float(args.rMax_ratio),
+        debug=True,
+        debug_label=f"case={case_id}",
     )
 
     xyz, r = spheres_from_clump_object(clump)
