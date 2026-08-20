@@ -137,6 +137,7 @@ Typical files:
 - `shape.stl` : target mesh
 - `balls_xyzr.txt` : sphere centers and radii (`x y z r`)
 - `meta.json` : input parameters + derived metrics
+- `molecule_mc.data` : molecule file for LAMMPS (using "molecule_mc.py")
 - (optional) CLUMP outputs (e.g., `*.txt`, `*.vtk` depending on your script settings)
 
 The `<case_id>` is derived from key parameters (hash-based), which helps caching/reproducibility.
