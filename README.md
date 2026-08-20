@@ -123,6 +123,9 @@ python scripts/run_compact_case_hash.py \
 - `overlap` : allowed overlap ratio between spheres
 - `rMax_ratio` : max radius ratio used by the extended procedure  
   (e.g., `1.0` allows large spheres up to the boundary constraint)
+- `samples-volume` : number of points to calculate volume and the center of mass using Monte Carlo method. The results make "molcule_mc.data"
+- `samples-inertia` : number of points to calculate inertia tensor using Monte Carlo method. The results make "molcule_mc.data"
+
 
 ### Output (per case)
 
