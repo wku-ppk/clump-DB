@@ -14,6 +14,13 @@ import trimesh.repair
 
 from CLUMP import GenerateClump_Euclidean_3D
 from clumpgen.id import make_hash_id
+from clumpgen.shape import (
+    SHAPE_FAMILIES,
+    ShapeParams,
+    make_particle_mesh,
+    resolve_shape_params,
+    source_shape_metrics,
+)
 
 
 def spheres_from_clump_object(clump):
@@ -54,10 +61,35 @@ def main():
     ap.add_argument("--params", default="", help="optional params.json (run_compact style)")
     ap.add_argument("--resume", action="store_true", help="skip if meta.json already exists")
 
-    # geometry (ellipsoid-ish)
+    # source-particle geometry
     ap.add_argument("--L", type=float, default=10.0)
     ap.add_argument("--e", type=float, default=0.75)        # I/L
     ap.add_argument("--f", type=float, default=0.65)        # S/I
+    ap.add_argument("--shape-family", choices=SHAPE_FAMILIES, default="ellipsoid")
+    ap.add_argument(
+        "--taper",
+        type=float,
+        default=0.25,
+        help="fractional reduction at one end; sign selects the end",
+    )
+    ap.add_argument(
+        "--boxiness",
+        type=float,
+        default=3.0,
+        help="superellipsoid exponent (2=ellipsoid, larger=boxier)",
+    )
+    ap.add_argument(
+        "--asymmetry-I",
+        type=float,
+        default=0.0,
+        help="signed one-sided bulging across the I direction",
+    )
+    ap.add_argument(
+        "--asymmetry-S",
+        type=float,
+        default=0.0,
+        help="signed one-sided bulging across the S direction",
+    )
     ap.add_argument("--sub", type=int, default=4)
     ap.add_argument("--randomness", type=float, default=0.18)
     ap.add_argument("--bias", type=float, default=1.5)
@@ -90,6 +122,11 @@ def main():
         args.L = float(g.get("L", args.L))
         args.e = float(g.get("I_over_L", args.e))
         args.f = float(g.get("S_over_I", args.f))
+        args.shape_family = str(g.get("family", args.shape_family))
+        args.taper = float(g.get("taper", args.taper))
+        args.boxiness = float(g.get("boxiness", args.boxiness))
+        args.asymmetry_I = float(g.get("asymmetry_I", args.asymmetry_I))
+        args.asymmetry_S = float(g.get("asymmetry_S", args.asymmetry_S))
         args.sub = int(g.get("subdivisions", args.sub))
         args.randomness = float(g.get("randomness", args.randomness))
         args.bias = float(g.get("bias", args.bias))
@@ -102,16 +139,38 @@ def main():
         args.rMax_ratio = float(c.get("rMax_ratio", args.rMax_ratio))
         args.visualise = bool(c.get("visualise", args.visualise))
 
+    shape_params = resolve_shape_params(
+        ShapeParams(
+            L=args.L,
+            e=args.e,
+            f=args.f,
+            family=args.shape_family,
+            taper=args.taper,
+            boxiness=args.boxiness,
+            asymmetry_I=args.asymmetry_I,
+            asymmetry_S=args.asymmetry_S,
+            subdivisions=args.sub,
+            randomness=args.randomness,
+            bias=args.bias,
+            seed=args.seed,
+        )
+    )
+
     # ---- build canonical payloads for IDs ----
     shape_payload = {
-        "algo_version": "shape_v1",
-        "L": float(args.L),
-        "e": float(args.e),
-        "f": float(args.f),
-        "subdivisions": int(args.sub),
-        "randomness": float(args.randomness),
-        "bias": float(args.bias),
-        "seed": int(args.seed),
+        "algo_version": "shape_v2",
+        "family": shape_params.family,
+        "L": float(shape_params.L),
+        "e": float(shape_params.e),
+        "f": float(shape_params.f),
+        "taper": float(shape_params.taper),
+        "boxiness": float(shape_params.boxiness),
+        "asymmetry_I": float(shape_params.asymmetry_I),
+        "asymmetry_S": float(shape_params.asymmetry_S),
+        "subdivisions": int(shape_params.subdivisions),
+        "randomness": float(shape_params.randomness),
+        "bias": float(shape_params.bias),
+        "seed": int(shape_params.seed),
     }
     shape_id = make_hash_id(shape_payload, n=12)
 
@@ -142,17 +201,10 @@ def main():
         print(f"[SKIP] {case_id} already done: {meta_path}")
         return
 
-    # ---- 1) make irregular ellipsoid STL ----
-    L = float(args.L)
-    I = float(args.e) * L
-    S = float(args.f) * I
+    # ---- 1) make source-particle STL ----
+    m = make_particle_mesh(shape_params)
 
-    m = trimesh.creation.icosphere(subdivisions=int(args.sub), radius=1.0)
-    v = m.vertices * np.array([L, I, S], dtype=float)
-    u = np.random.default_rng(int(args.seed)).random(len(v)) ** float(args.bias)
-    m.vertices = v * (1.0 - float(args.randomness) * u)[:, None]  # inward-only
-
-# ---- (optional) mesh cleanup / validation ----
+    # ---- (optional) mesh cleanup / validation ----
     try:
         m.process(validate=True)
         trimesh.repair.fix_inversion(m)
@@ -231,6 +283,7 @@ def main():
             "n_faces": int(len(m.faces)),
         },
         "metrics": {
+            "source_shape": source_shape_metrics(m, shape_params),
             "wadell": wadell,
             "circumsphere": {
                 "center": [float(x) for x in center],

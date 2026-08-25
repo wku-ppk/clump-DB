@@ -9,7 +9,7 @@ This is designed for later binning/filtering (e.g., selecting clumps by shape/ro
 
 For each case (one parameter set), the pipeline:
 
-1. Generates an irregular ellipsoid STL mesh (`shape.stl`)
+1. Generates an ellipsoidal, tapered, superellipsoidal, or rounded-trapezoidal STL mesh (`shape.stl`)
 2. Runs CLUMP (Euclidean_3D extended procedure) to create a sphere-pack clump
 3. Saves:
    - sphere list `balls_xyzr.txt` (`x y z r`)
@@ -53,7 +53,7 @@ python -m pip install -e .
 Install runtime dependencies (if not already installed via your environment):
 
 ```bash
-python -m pip install numpy trimesh pyvista
+python -m pip install numpy scipy trimesh pyvista
 ```
 
 Install CLUMP Python wrapper:
@@ -68,7 +68,7 @@ python -m pip install clump-python
 
 ## 1) `scripts/make_shape.py`
 
-Generate a single irregular ellipsoid STL mesh.  
+Generate a single particle STL mesh.
 This is useful to validate mesh parameters before running the full clump pipeline.
 
 ### Usage
@@ -77,15 +77,53 @@ This is useful to validate mesh parameters before running the full clump pipelin
 python scripts/make_shape.py   --out outputs/test.stl   --L 10 --e 0.75 --f 0.65   --sub 4 --randomness 0.18 --bias 1.5 --seed 1234
 ```
 
+Generate a Hime-like rounded trapezoidal particle:
+
+```bash
+python scripts/make_shape.py \
+  --out outputs/hime_rounded_trapezoid.stl \
+  --shape-family rounded_trapezoid \
+  --L 10 --e 0.80 --f 0.75 \
+  --taper 0.25 --boxiness 3.0 \
+  --asymmetry-I 0.12 --asymmetry-S -0.06 \
+  --sub 4 --randomness 0.06 --bias 1.5 --seed 1234
+```
+
 ### Shape parameters
 
-- `L` : longest axis length
+- `L` : historical longest-axis scale (semi-axis; the unperturbed full extent is `2L`)
 - `e` : `I/L` (intermediate-to-long axis ratio)
 - `f` : `S/I` (short-to-intermediate axis ratio)
+- `shape-family` : `ellipsoid`, `tapered_ellipsoid`, `superellipsoid`, or `rounded_trapezoid`
+- `taper` : fractional reduction of the smaller end; the sign selects which end is reduced
+- `boxiness` : superellipsoid exponent (`2` is ellipsoidal; larger values give flatter faces and sharper shoulders)
+- `asymmetry-I` : signed one-sided bulging across the intermediate-axis direction
+- `asymmetry-S` : signed one-sided bulging across the short-axis direction
 - `sub` : mesh subdivision level (higher → more vertices/faces)
 - `randomness` : inward vertex perturbation magnitude
 - `bias` : distribution skew for perturbation (higher → many small changes, fewer large ones)
 - `seed` : RNG seed for reproducibility
+
+`taper` is active for `tapered_ellipsoid` and `rounded_trapezoid`.
+`boxiness` is active for `superellipsoid` and `rounded_trapezoid`. Controls
+that do not apply to the selected family are normalized before the shape ID is
+calculated, so they do not create duplicate geometries with different IDs.
+The transverse asymmetry controls apply to every family. Zero preserves mirror
+symmetry; the sign selects the enlarged side, and the magnitude controls the
+coherent departure from a centered cross-section. Values must remain between
+`-0.5` and `0.5`.
+
+The generated metadata includes source-mesh descriptors under
+`metrics.source_shape`:
+
+- `ellipsoid_reference_rms` : normalized departure from the reference ellipsoid
+- `taper_ratio` : end-size ratio implied by the taper control
+- `boxiness_exponent` : resolved superellipsoid exponent
+- `transverse_asymmetry_I`, `transverse_asymmetry_S` : resolved transverse deformation controls
+- `convexity_volume_ratio` : particle volume divided by convex-hull volume
+- `sphericity_wadell_3d` : surface-area/volume-based 3D Wadell sphericity
+
+These are evaluated on `shape.stl`, before the sphere-clump approximation.
 
 ---
 
@@ -100,7 +138,9 @@ Generate a full “case”:
 
 ```bash
 python scripts/run_compact_case_hash.py \
-  --L 1 --e 0.75 --f 0.65 --sub 1 --randomness 0.30 --seed 1234 \
+  --shape-family rounded_trapezoid --taper 0.25 --boxiness 3.0 \
+  --asymmetry-I 0.12 --asymmetry-S -0.06 \
+  --L 1 --e 0.75 --f 0.65 --sub 1 --randomness 0.10 --seed 1234 \
   --N 40 --rMin 0.0 --div 300 --overlap 0.7 --rMax_ratio 1.0 \
   --Gs 2.65 --samples-volume 200000 --samples-inertia 200000 \
   --update-meta
@@ -109,9 +149,13 @@ python scripts/run_compact_case_hash.py \
 ### Parameters
 
 #### STL generation (shape)
-- `L` : longest axis length
+- `L` : historical longest-axis scale (semi-axis; the unperturbed full extent is `2L`)
 - `e` : `I/L`
 - `f` : `S/I`
+- `shape-family` : source shape family
+- `taper` : end taper for tapered families
+- `boxiness` : superellipsoid exponent for boxy/rounded-trapezoidal families
+- `asymmetry-I`, `asymmetry-S` : coherent non-symmetry in perpendicular cross-sections
 - `sub` : subdivision level
 - `randomness` : inward vertex perturbation magnitude
 - `seed` : RNG seed
@@ -218,6 +262,7 @@ Other useful options:
 
 - Python 3.x
 - `numpy`
+- `scipy` (convex-hull metric used for source-shape convexity)
 - `trimesh`
 - `pyvista` (viewer)
 - `clump-python` (CLUMP wrapper)
@@ -225,5 +270,5 @@ Other useful options:
 Example install:
 
 ```bash
-python -m pip install numpy trimesh pyvista clump-python
+python -m pip install numpy scipy trimesh pyvista clump-python
 ```
