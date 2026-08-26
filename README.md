@@ -141,8 +141,8 @@ python scripts/run_compact_case_hash.py \
   --shape-family rounded_trapezoid --taper 0.25 --boxiness 3.0 \
   --asymmetry-I 0.12 --asymmetry-S -0.06 \
   --L 1 --e 0.75 --f 0.65 --sub 1 --randomness 0.10 --seed 1234 \
-  --N 40 --rMin 0.0 --div 300 --overlap 0.7 --rMax_ratio 1.0 \
-  --Gs 2.65 --samples-volume 200000 --samples-inertia 200000 \
+  --N 30 --rMin 0.0 --div 50 --overlap 0.7 --rMax_ratio 1.0 \
+  --Gs 2.65 --samples-volume 2000 --samples-inertia 2000 \
   --update-meta
 ```
 
