@@ -3,6 +3,7 @@ import argparse
 from clumpgen.shape import (
     SHAPE_FAMILIES,
     ShapeParams,
+    calculate_shape_parameters,
     make_particle_stl,
     source_shape_metrics,
 )
@@ -71,6 +72,7 @@ def main():
         len(mesh.faces),
     )
     print("[INFO] source metrics =", source_shape_metrics(mesh, p))
+    print("[INFO] shape parameters =", calculate_shape_parameters(mesh))
 
 
 if __name__ == "__main__":

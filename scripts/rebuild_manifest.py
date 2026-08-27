@@ -75,13 +75,17 @@ def build_record(case_dir: Path, root: Path, include_files: bool, require_stl: b
     if isinstance(meta, dict):
         # Common keys we expect from your generator
         # (If your schema differs, this still preserves raw meta under "meta")
-        shape = meta.get("shape") or meta.get("geometry") or {}
-        clump = meta.get("clump") or {}
+        shape = meta.get("shape") or meta.get("geometry") or meta.get("shape_params") or {}
+        clump = meta.get("clump") or meta.get("clump_params") or {}
         metrics = meta.get("metrics") or {}
+        shape_parameters = meta.get("shape_parameters") or {}
+        projection_shape = meta.get("projection_shape") or {}
 
         rec["shape"] = shape
         rec["clump"] = clump
         rec["metrics"] = metrics
+        rec["shape_parameters"] = shape_parameters
+        rec["projection_shape"] = projection_shape
 
         # Keep full meta as well (optional but helpful)
         rec["meta"] = meta

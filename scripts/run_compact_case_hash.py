@@ -17,6 +17,8 @@ from clumpgen.id import make_hash_id
 from clumpgen.shape import (
     SHAPE_FAMILIES,
     ShapeParams,
+    calculate_projection_shape_parameters,
+    calculate_shape_parameters,
     make_particle_mesh,
     resolve_shape_params,
     source_shape_metrics,
@@ -40,7 +42,14 @@ def wadell_roundness_from_radii(r):
     r_in = float(r.max())
     R1 = float((r / r_in).mean())
     R2 = float(1.0 / (r_in / r).mean())
-    return {"R1": R1, "R2": R2, "r_in": r_in, "D_in": 2.0 * r_in}
+    return {
+        "metric_role": "clump_component_sphere_radius_proxy",
+        "is_source_shape_parameter": False,
+        "R1": R1,
+        "R2": R2,
+        "r_in": r_in,
+        "D_in": 2.0 * r_in,
+    }
 
 
 def write_json(path: Path, obj: dict) -> None:
@@ -95,6 +104,10 @@ def main():
     ap.add_argument("--bias", type=float, default=1.5)
     ap.add_argument("--seed", type=int, default=1234)
 
+    # source-mesh projection measurements
+    ap.add_argument("--projection-orientations", type=int, default=64)
+    ap.add_argument("--projection-resolution", type=int, default=512)
+
     # clump
     ap.add_argument("--N", type=int, default=300)
     ap.add_argument("--rMin", type=float, default=0.5)
@@ -119,6 +132,7 @@ def main():
         cfg = json.loads(Path(args.params).read_text(encoding="utf-8"))
         g = cfg.get("geometry", {})
         c = cfg.get("clump", {})
+        measurement = cfg.get("measurement", {})
         args.L = float(g.get("L", args.L))
         args.e = float(g.get("I_over_L", args.e))
         args.f = float(g.get("S_over_I", args.f))
@@ -138,6 +152,12 @@ def main():
         args.overlap = float(c.get("overlap", args.overlap))
         args.rMax_ratio = float(c.get("rMax_ratio", args.rMax_ratio))
         args.visualise = bool(c.get("visualise", args.visualise))
+        args.projection_orientations = int(
+            measurement.get("projection_orientations", args.projection_orientations)
+        )
+        args.projection_resolution = int(
+            measurement.get("projection_resolution", args.projection_resolution)
+        )
 
     shape_params = resolve_shape_params(
         ShapeParams(
@@ -239,6 +259,12 @@ def main():
     np.savetxt(balls_txt.as_posix(), np.column_stack([xyz, r]), fmt="%.8g")
 
     # ---- 3) metrics ----
+    shape_parameters = calculate_shape_parameters(m)
+    projection_shape = calculate_projection_shape_parameters(
+        m,
+        orientation_count=args.projection_orientations,
+        resolution=args.projection_resolution,
+    )
     wadell = wadell_roundness_from_radii(r)
     center, r_out = trimesh.nsphere.minimum_nsphere(mesh)
     D_out = 2.0 * float(r_out)
@@ -276,6 +302,8 @@ def main():
             "meta": meta_path.as_posix(),
         },
         "shape_params": shape_payload,
+        "shape_parameters": shape_parameters,
+        "projection_shape": projection_shape,
         "clump_params": clump_payload,
         "mesh_stats": {
             "watertight": bool(m.is_watertight),
@@ -309,6 +337,13 @@ def main():
     print("[OK] balls:", balls_txt, "M=", len(r))
     print("[OK] meta:", meta_path)
     print("[INFO] sphericity =", sphericity)
+    print(
+        "[INFO] projection shape =",
+        {
+            key: projection_shape[key]
+            for key in ("AR", "C_x", "S", "SAGI", "SAGI_class")
+        },
+    )
 
 
 if __name__ == "__main__":
